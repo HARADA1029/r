@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HD Store</title>
+</head>
+<body>
+<p style="font-family:sans-serif;color:#666;">Taking you to our eBay store&hellip;
+<a id="lnk" href="https://www.ebay.com/str/hdtoysstore">Click here if you are not redirected.</a></p>
+<script>
+(function () {
+  var LOG = 'https://script.google.com/macros/s/AKfycbxl2rbofsot7m-8cYuhzgV-9ZHE20qtXWiZOoMJYPbDYQDr0DrinOgopuS2kYQBkXrFsQ/exec';
+  var HOME = 'https://www.ebay.com/str/hdtoysstore';
+  var q = new URLSearchParams(location.search);
+  var dest = q.get('u') || '';
+  // 安全弁: eBay ドメイン以外へは飛ばさない (open redirect 防止)
+  try {
+    var h = new URL(dest).hostname;
+    if (!/(^|\.)ebay\.(com|co\.jp|de|co\.uk|fr|it|es|com\.au|ca)$/.test(h)) dest = HOME;
+  } catch (e) { dest = HOME; }
+  document.getElementById('lnk').href = dest;
+  // クリック記録 beacon (GAS doGet が platform×kind をカウント)。 JS 実行が条件なので
+  // リンクプレビュー bot (JS 非実行) は自然に除外される。
+  try {
+    var params = new URLSearchParams({
+      pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na', u: 'logged'
+    });
+    fetch(LOG + '?' + params.toString(), { mode: 'no-cors', keepalive: true });
+  } catch (e) { /* logging failure must not block redirect */ }
+  setTimeout(function () { location.replace(dest); }, 120);
+})();
+</script>
+</body>
+</html>
