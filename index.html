@@ -25,7 +25,8 @@
   // リンクプレビュー bot (JS 非実行) は自然に除外される。
   try {
     var params = new URLSearchParams({
-      pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na', u: 'logged'
+      pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na',
+      i: q.get('i') || '', u: 'logged'
     });
     fetch(LOG + '?' + params.toString(), { mode: 'no-cors', keepalive: true });
   } catch (e) { /* logging failure must not block redirect */ }
