@@ -21,12 +21,28 @@
     if (!/(^|\.)ebay\.(com|co\.jp|de|co\.uk|fr|it|es|com\.au|ca)$/.test(h)) dest = HOME;
   } catch (e) { dest = HOME; }
   document.getElementById('lnk').href = dest;
-  // クリック記録 beacon (GAS doGet が platform×kind をカウント)。 JS 実行が条件なので
-  // リンクプレビュー bot (JS 非実行) は自然に除外される。
+  // クリック記録 beacon (GAS doGet が platform×kind をカウント)。
+  //
+  // 2026-08-18 (v3 / HDC root fix): 「JS が動いた = 人間」は成り立たない。 リンク安全性
+  // スキャナやプレビュー生成の多くは headless Chrome で JS を実行するため、 従来の生カウント
+  // には bot が混ざる (実測: YouTube 枠が 37 日間 1 日 3〜4 件で減衰ゼロ = 人間の挙動でない)。
+  // → **クライアント信号を beacon に載せて GAS 側で bot/人間を判定**する。 リクエストは
+  //    従来どおり 1 本だけなので遷移は遅くならない。
+  // ⚠ hb=1 が実クリック判定のスイッチ。 これを落とすと GAS 側は「判定不能」として
+  //    実クリックを一切数えなくなる (= 静かに 0 になる)。 tracking_selftest.py が
+  //    このページに hb=1 が居ることを日次で確認している。
   try {
+    var n = navigator, s = (typeof screen !== 'undefined' && screen) ? screen : {};
     var params = new URLSearchParams({
       pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na',
-      i: q.get('i') || '', u: 'logged'
+      i: q.get('i') || '', u: 'logged',
+      hb: '1',
+      ua: String(n.userAgent || '').slice(0, 180),
+      wd: n.webdriver ? '1' : '0',
+      sw: String(s.width || 0),
+      lg: String((n.languages || []).length),
+      hc: String(n.hardwareConcurrency || 0),
+      vs: String(document.visibilityState || '?').charAt(0)
     });
     fetch(LOG + '?' + params.toString(), { mode: 'no-cors', keepalive: true });
   } catch (e) { /* logging failure must not block redirect */ }
