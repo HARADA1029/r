@@ -13,13 +13,28 @@
 (function () {
   var LOG = 'https://script.google.com/macros/s/AKfycbxl2rbofsot7m-8cYuhzgV-9ZHE20qtXWiZOoMJYPbDYQDr0DrinOgopuS2kYQBkXrFsQ/exec';
   var HOME = 'https://www.ebay.com/str/hdtoysstore';
+  // 終了した出品 → 生きている同等商品 (ストア内検索) の対応表。
+  // ⚠ この行は SNS自動配信/src/traffic/ended_links.py が自動生成して push する。
+  //    手で書き換えないこと (次回同期で上書きされる)。 マーカーを消すと同期が失敗する。
+  /*ENDED_START*/var ENDED={"286953709840": "https://www.ebay.com/str/hdjapanstore?_nkw=Logo", "287407542054": "https://www.ebay.com/str/hdjapanstore?_nkw=Supreme"};/*ENDED_END*/
   var q = new URLSearchParams(location.search);
   var dest = q.get('u') || '';
   // 安全弁: eBay ドメイン以外へは飛ばさない (open redirect 防止)
-  try {
-    var h = new URL(dest).hostname;
-    if (!/(^|\.)ebay\.(com|co\.jp|de|co\.uk|fr|it|es|com\.au|ca)$/.test(h)) dest = HOME;
-  } catch (e) { dest = HOME; }
+  function safe(u) {
+    try {
+      var h = new URL(u).hostname;
+      return /(^|\.)ebay\.(com|co\.jp|de|co\.uk|fr|it|es|com\.au|ca)$/.test(h);
+    } catch (e) { return false; }
+  }
+  if (!safe(dest)) dest = HOME;
+  // 終了品の救済 (2026-08-18): 投稿本文のリンクは書き換えられないが、 リンクは必ず
+  // ここを通る。 終了 item はストア検索 (同キーワード) へ逃がす = 送客を捨てない。
+  var item = q.get('i') || '';
+  var ended = '';
+  if (item && Object.prototype.hasOwnProperty.call(ENDED, item)) {
+    var alt = ENDED[item];
+    if (safe(alt)) { dest = alt; ended = '1'; }
+  }
   document.getElementById('lnk').href = dest;
   // クリック記録 beacon (GAS doGet が platform×kind をカウント)。
   //
@@ -31,12 +46,13 @@
   // ⚠ hb=1 が実クリック判定のスイッチ。 これを落とすと GAS 側は「判定不能」として
   //    実クリックを一切数えなくなる (= 静かに 0 になる)。 tracking_selftest.py が
   //    このページに hb=1 が居ることを日次で確認している。
+  // ⚠ ed=1 は終了品の救済が発火したことを GAS に伝える (救済が効いているかの唯一の観測)。
   try {
     var n = navigator, s = (typeof screen !== 'undefined' && screen) ? screen : {};
     var params = new URLSearchParams({
       pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na',
-      i: q.get('i') || '', u: 'logged',
-      hb: '1',
+      i: item, u: 'logged',
+      hb: '1', ed: ended,
       ua: String(n.userAgent || '').slice(0, 180),
       wd: n.webdriver ? '1' : '0',
       sw: String(s.width || 0),
