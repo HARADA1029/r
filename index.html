@@ -47,22 +47,53 @@
   //    実クリックを一切数えなくなる (= 静かに 0 になる)。 tracking_selftest.py が
   //    このページに hb=1 が居ることを日次で確認している。
   // ⚠ ed=1 は終了品の救済が発火したことを GAS に伝える (救済が効いているかの唯一の観測)。
-  try {
-    var n = navigator, s = (typeof screen !== 'undefined' && screen) ? screen : {};
-    var params = new URLSearchParams({
-      pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na',
-      i: item, u: 'logged',
-      hb: '1', ed: ended,
-      ua: String(n.userAgent || '').slice(0, 180),
-      wd: n.webdriver ? '1' : '0',
-      sw: String(s.width || 0),
-      lg: String((n.languages || []).length),
-      hc: String(n.hardwareConcurrency || 0),
-      vs: String(document.visibilityState || '?').charAt(0)
-    });
-    fetch(LOG + '?' + params.toString(), { mode: 'no-cors', keepalive: true });
-  } catch (e) { /* logging failure must not block redirect */ }
-  setTimeout(function () { location.replace(dest); }, 120);
+  //
+  // 2026-09-02 (HDC 調査用調査で発見): GAS 側の bot 判定 `_botReason` は最後の砦として
+  // `not_visible` (=読み込み時に visibilityState が 'visible' でない) を bot 扱いにしていた。
+  // 実際にはバックグラウンドタブで開かれたリンク、 X/IG/FB のアプリ内ブラウザの
+  // 先行ロード、 prerender も同じ信号を出すため、 これらの **正当な人間クリック**まで
+  // bot に数えられていた (実測: not_visible が bot 内訳で最多の 130 件)。
+  // → 読み込み時に非可視なら、 最大 15 秒だけ visibilitychange で可視化を待ってから
+  //   beacon+redirect を送る (可視化できたら vs='v' で送る)。 タイムアウトしたら
+  //   従来どおりその時点の状態で送る (無期限に待って redirect を止めない)。
+  function fireAndGo(vsChar) {
+    try {
+      var n = navigator, s = (typeof screen !== 'undefined' && screen) ? screen : {};
+      var params = new URLSearchParams({
+        pf: q.get('pf') || 'unknown', acc: q.get('acc') || '', k: q.get('k') || 'na',
+        i: item, u: 'logged',
+        hb: '1', ed: ended,
+        ua: String(n.userAgent || '').slice(0, 180),
+        wd: n.webdriver ? '1' : '0',
+        sw: String(s.width || 0),
+        lg: String((n.languages || []).length),
+        hc: String(n.hardwareConcurrency || 0),
+        vs: vsChar
+      });
+      fetch(LOG + '?' + params.toString(), { mode: 'no-cors', keepalive: true });
+    } catch (e) { /* logging failure must not block redirect */ }
+    setTimeout(function () { location.replace(dest); }, 120);
+  }
+  var initialVs = String(document.visibilityState || '?').charAt(0);
+  if (initialVs !== 'v') {
+    var settled = false;
+    var onVisible = function () {
+      if (settled || document.visibilityState !== 'visible') return;
+      settled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      clearTimeout(waitTimer);
+      fireAndGo('v');
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    var waitTimer = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      document.removeEventListener('visibilitychange', onVisible);
+      fireAndGo(String(document.visibilityState || '?').charAt(0));
+    }, 15000);
+  } else {
+    fireAndGo('v');
+  }
 })();
 </script>
 </body>
